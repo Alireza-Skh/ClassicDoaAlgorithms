@@ -3,7 +3,7 @@ from scipy import linalg
 from signal_model.antenna_response import FarField1DSource
 
 
-class Esprit(FarField1DSource):
+class Esprit1D(FarField1DSource):
     """
     References:
         [1] R. Roy and T. Kailath, "ESPRIT-estimation of signal parameters via
@@ -15,7 +15,7 @@ class Esprit(FarField1DSource):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def estimate(self, angles: np.ndarray, snr: int, displacement_vector=1, formulation='tls'):
+    def estimate(self, angles: list, snr: int, displacement_vector=1, formulation='tls'):
         if displacement_vector < 1:
             raise ValueError(
                 'displacement_vector must be a non-negative integer.')
@@ -27,7 +27,7 @@ class Esprit(FarField1DSource):
         R = np.cov(z, rowvar=False)
 
         E = linalg.svd(R)[0]
-        Es = E[:, :self.num_target]
+        Es = E[:, :self.num_source]
         Esx = Es[:-displacement_vector, :]
         Esy = Es[displacement_vector:, :]
 
@@ -35,8 +35,8 @@ class Esprit(FarField1DSource):
             Exy = np.hstack((Esx, Esy))
             Exy = Exy.conj().T @ Exy
             V = linalg.svd(Exy)[0]
-            V12 = V[:self.num_target, self.num_target:]
-            V22 = V[self.num_target:, self.num_target:]
+            V12 = V[:self.num_source, self.num_source:]
+            V22 = V[self.num_source:, self.num_source:]
             Phi = (-V12 / V22)
         elif formulation == 'ls':
             Esx_H = Esx.conj().T

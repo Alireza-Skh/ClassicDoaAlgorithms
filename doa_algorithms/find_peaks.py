@@ -2,6 +2,26 @@ import numpy as np
 from scipy.signal import find_peaks, butter, filtfilt, savgol_filter
 from scipy.ndimage import gaussian_filter1d
 
+# def find_spectrum_peaks(
+#     theta: np.ndarray,
+#     spectrum: np.ndarray,
+#     angle_res: float,
+#     num_sources: int
+# ) -> np.ndarray:
+#     spectrum /= np.max(spectrum)
+#     bin_width = theta[1] - theta[0]
+#     distance_bins = angle_res // bin_width
+#     distance_bins = max(1, distance_bins)
+
+#     angles = []
+#     while len(angles) < num_sources:
+#         index = np.where(spectrum == 1)[0].item()
+#         angles.append(index)
+#         spectrum[int(index-distance_bins/2):int(index+distance_bins/2)] = 0
+#         spectrum /= np.max(spectrum)
+
+#     return np.array(angles)
+
 
 class SpectrumPeakFinder:
     def __init__(self, expected_peaks, filter_type='butterworth', filter_params=None):
@@ -126,8 +146,9 @@ class SpectrumPeakFinder:
 
         return spectrum_copy
 
-    def find_peak_indices(self, spectrum, min_prominence_ratio=0.05):
-        working_spectrum = self.apply_lowpass_filter(spectrum).copy()
+    def find_peak_indices(self, spectrum, min_prominence_ratio=0.05, return_filtered_spectrum=False):
+        filtered_spectrum = self.apply_lowpass_filter(spectrum)
+        working_spectrum = filtered_spectrum.copy()
 
         peak_indices = []
 
@@ -146,4 +167,6 @@ class SpectrumPeakFinder:
             sorted_order = np.argsort(peak_indices)
             peak_indices = [peak_indices[i] for i in sorted_order]
 
+        if return_filtered_spectrum:
+            return peak_indices, filtered_spectrum
         return peak_indices

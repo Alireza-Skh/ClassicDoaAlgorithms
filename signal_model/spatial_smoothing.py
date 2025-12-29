@@ -28,8 +28,6 @@ def fbss(input_signal, num_antenna, num_subarray):
 def improved_spatial_smoothed_covariance(input_signal, num_antenna, num_subarray):
     """
     Compute the improved spatially smoothed covariance matrix for a given input signal.
-    Based on paper `DOA-Estimation Method Based on Improved Spatial-Smoothing Technique`
-    DOI: `https://doi.org/10.3390/math12010045`
 
     Parameters:
     - `input_signal` : numpy.ndarray
