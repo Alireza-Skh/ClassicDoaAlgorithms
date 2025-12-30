@@ -2,26 +2,6 @@ import numpy as np
 from scipy.signal import find_peaks, butter, filtfilt, savgol_filter
 from scipy.ndimage import gaussian_filter1d
 
-# def find_spectrum_peaks(
-#     theta: np.ndarray,
-#     spectrum: np.ndarray,
-#     angle_res: float,
-#     num_sources: int
-# ) -> np.ndarray:
-#     spectrum /= np.max(spectrum)
-#     bin_width = theta[1] - theta[0]
-#     distance_bins = angle_res // bin_width
-#     distance_bins = max(1, distance_bins)
-
-#     angles = []
-#     while len(angles) < num_sources:
-#         index = np.where(spectrum == 1)[0].item()
-#         angles.append(index)
-#         spectrum[int(index-distance_bins/2):int(index+distance_bins/2)] = 0
-#         spectrum /= np.max(spectrum)
-
-#     return np.array(angles)
-
 
 class SpectrumPeakFinder:
     def __init__(self, expected_peaks, filter_type='butterworth', filter_params=None):
@@ -70,7 +50,8 @@ class SpectrumPeakFinder:
             window_length = max(window_length, polyorder + 1)
             window_length = min(window_length, len(spectrum))
 
-            filtered_spectrum = savgol_filter(spectrum, window_length, polyorder)
+            filtered_spectrum = savgol_filter(
+                spectrum, window_length, polyorder)
 
         else:
             raise ValueError(f"Unknown filter type: {self.filter_type}")

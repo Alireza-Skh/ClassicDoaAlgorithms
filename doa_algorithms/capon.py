@@ -7,29 +7,28 @@ class Capon:
         super().__init__()
         self.array = array
         self.doas_list = doas_list
+        self.epsilon = 1e-10
+        self.num_angles = len(self.doas_list)
+        self._manifold_m = None
 
-    def _calc_weights(self, R_inv, stv):
-        w = R_inv @ stv
-        w /= (stv.conj().T @ R_inv @ stv)
-        return w
+    @property
+    def manifold_matrix_1d(self) -> np.ndarray:
+        if self._manifold_m is None:
+            steering_vectors = [
+                self.array.receive_steering_vector(angle) for angle in self.doas_list
+            ]
+            self._manifold_m = np.stack(steering_vectors, axis=0)
+        return self._manifold_m
 
-    def _calc_power(self, weights, signal):
-        y = np.dot(weights.conj().T, signal.T)
-        power = np.mean(np.abs(y)**2)
-        return power
-
-    def estimate(self, input_signal: np.ndarray):
-        power = np.empty_like(self.doas_list, dtype=np.float32)
+    def estimate(self, input_signal: np.ndarray) -> np.ndarray:
         R = input_signal.conj().T @ input_signal / input_signal.shape[0]
+        R += self.epsilon * np.eye(self.array.num_antenna)
         try:
             R_inv = linalg.inv(R)
         except linalg.LinAlgError:
             raise ValueError("Failed to invert R.")
 
-        for i, doa in enumerate(self.doas_list):
-            stv = self.steering_vector(doa)[:, np.newaxis]
-
-            w = self._calc_weights(R_inv, stv)
-            power[i] = self._calc_power(w, input_signal)
-
-        return power
+        A = self.manifold_matrix_1d
+        spec_denominator = np.einsum('in,nm,im->i', A, R_inv, A.conj())
+        spectrum = 1.0 / (np.real(spec_denominator) + 1e-6)
+        return spectrum

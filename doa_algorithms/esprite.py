@@ -1,49 +1,34 @@
 import numpy as np
 from scipy import linalg
-from signal_model.antenna_response import FarField1DSource
 
 
-class Esprit1D(FarField1DSource):
-    """
-    References:
-        [1] R. Roy and T. Kailath, "ESPRIT-estimation of signal parameters via
-        rotational invariance techniques," IEEE Transactions on Acoustics,
-        Speech and Signal Processing, vol. 37, no. 7, pp. 984–995,
-        Jul. 1989.
-    """
+class Capon:
+    def __init__(self, array, doas_list):
+        super().__init__()
+        self.array = array
+        self.doas_list = doas_list
+        self.epsilon = 1e-10
+        self.num_angles = len(self.doas_list)
+        self._manifold_m = None
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    @property
+    def manifold_matrix_1d(self) -> np.ndarray:
+        if self._manifold_m is None:
+            steering_vectors = [
+                self.array.receive_steering_vector(angle) for angle in self.doas_list
+            ]
+            self._manifold_m = np.stack(steering_vectors, axis=0)
+        return self._manifold_m
 
-    def estimate(self, angles: list, snr: int, displacement_vector=1, formulation='tls'):
-        if displacement_vector < 1:
-            raise ValueError(
-                'displacement_vector must be a non-negative integer.')
+    def estimate(self, input_signal: np.ndarray) -> np.ndarray:
+        R = input_signal.conj().T @ input_signal / input_signal.shape[0]
+        R += self.epsilon * np.eye(self.array.num_antenna)
+        try:
+            R_inv = linalg.inv(R)
+        except linalg.LinAlgError:
+            raise ValueError("Failed to invert R.")
 
-        x = self.collect_plane_wave_response(angles, snr)
-        y = self.collect_plane_wave_response_doublets(angles, snr)
-        z = np.vstack([x, y])
-
-        R = np.cov(z, rowvar=False)
-
-        E = linalg.svd(R)[0]
-        Es = E[:, :self.num_source]
-        Esx = Es[:-displacement_vector, :]
-        Esy = Es[displacement_vector:, :]
-
-        if formulation == 'tls':
-            Exy = np.hstack((Esx, Esy))
-            Exy = Exy.conj().T @ Exy
-            V = linalg.svd(Exy)[0]
-            V12 = V[:self.num_source, self.num_source:]
-            V22 = V[self.num_source:, self.num_source:]
-            Phi = (-V12 / V22)
-        elif formulation == 'ls':
-            Esx_H = Esx.conj().T
-            Phi = (Esx_H @ Esx) / (Esx_H @ Esy)
-        else:
-            raise ValueError("Formulation must be either 'ls' or 'tls'.")
-
-        doa = linalg.eigvals(Phi)
-        doa = np.arcsin(np.angle(doa) / (np.pi * displacement_vector))
-        return -doa
+        A = self.manifold_matrix_1d
+        spec_denominator = np.einsum('in,nm,im->i', A, R_inv, A.conj())
+        spectrum = 1.0 / (np.real(spec_denominator) + 1e-6)
+        return spectrum
